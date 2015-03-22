@@ -1,5 +1,7 @@
 ![Hook shot gif](https://d262ilb51hltx0.cloudfront.net/max/1600/1*yivSOqaBOsnXLN0Lis-y-w.gif)
 
+## Introduction
+
 **[Webhooks](https://developer.github.com/webhooks/) [are](http://www.boomerang.io/blog/why-webhooks-are-awesome) [awesome](http://blog.iron.io/2013/09/7-reasons-webhooks-are-magic.html).**
 
 While I was working at [SendGrid](https://sendgrid.com/), most of the API demos I and the other evangelists did involved using webhooks. For example, I had a [GIF demo](https://github.com/heitortsergent/gimmegif) (GIFs are also awesome), my co-worker [Yamil](https://twitter.com/elbuo8) had a [Pokémon demo](https://github.com/elbuo8/sgdemo-pokemon), and both of them used [SendGrid's Parse Webhook](https://sendgrid.com/docs/API_Reference/Webhooks/parse.html).
@@ -40,7 +42,47 @@ If you don't have azk installed, head here first: http://docs.azk.io/en/index.ht
 
 ---
 
-I wrote a little bit about azk in my [previous post](https://medium.com/azuki-news/im-joining-azuki-ac5958ec2687), but basically it's an **open-source CLI tool that you can use to easily orchestrate development environments** in your machine. It uses [VirtualBox](https://www.virtualbox.org/) and [Docker](https://www.docker.com/) under the hood, and it gives you a simple JS file to describe what kind of systems you need (node 0.10, Ruby 2.3, redis, MongoDB) and how they connect to each other. Here's a quick GIF showing it running:
+## azk
+
+I wrote a little bit about azk in another [blog post](https://medium.com/azuki-news/im-joining-azuki-ac5958ec2687), but basically it's an **open-source CLI tool that you can use to easily orchestrate development environments** in your machine. It uses [VirtualBox](https://www.virtualbox.org/) and [Docker](https://www.docker.com/) under the hood, and it gives you a simple JavaScript file (called Azkfile) to describe what kind of systems you need (node 0.10, Ruby 2.3, redis, MongoDB) and how they connect to each other. It's similar to Docker-Compose, but has a few extra features like a built-in load balancer. Here's **an example Azkfile.js** describing an app that requires Node 0.10 and Redis:
+
+```javascript
+systems({
+  'node-app': {
+    depends: ["redis"],
+    image: {"docker": "azukiapp/node:0.10"},
+    provision: [
+      "npm install",
+    ],
+    workdir: "/azk/#{manifest.dir}",
+    shell: "/bin/bash",
+    command: "npm start",
+    wait: {"retry": 20, "timeout": 1000},
+    mounts: {
+      '/azk/#{manifest.dir}': path("."),
+    },
+    scalable: {"default": 1},
+    http: {
+      domains: [ "#{system.name}.#{azk.default_domain}" ]
+    },
+    envs: {
+      NODE_ENV: "dev",
+    },
+  },
+  redis: {
+    image: { docker: "redis" },
+    export_envs: {
+      "DATABASE_URL": "redis://#{net.host}:#{net.port[6379]}"
+    }
+  },
+});
+```
+
+If you're familiar with Docker, most of the parameters should be immediately clear as to what they do. But the most important ones, `image` defines what image we're going to pull from Docker Hub. You can declare that a system `depends` on another, and use the `export_envs` field to expose environment variables so they know how to connect (in this case, send our database URL information to our node app). `scalable` lets you test your app simulating multiple containers, and `provision` and `command` will let you define how to provision and start your app. :)
+
+## Webhook Demos
+
+You can check out a [SendGrid Giphy demo](https://github.com/heitortsergent/gimmegif), a [SendGrid Pokémon demo](https://github.com/heitortsergent/sgdemo-pokemon), a [Twilio-Giphy MMS](https://github.com/heitortsergent/giphy-twilio-mms) demo, or a [Twitter demo](https://github.com/heitortsergent/sinatra-cf-twitter) that I modified to use azk. (Thanks to [Yamil](https://github.com/elbuo8), [Greg](https://github.com/GregBaugues) and [Andy](https://github.com/andypiper) for those). They should be as simple to run as:
 
 ```bash
 # 1. git clone the repository
